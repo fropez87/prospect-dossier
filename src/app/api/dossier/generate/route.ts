@@ -138,12 +138,17 @@ export async function POST(request: NextRequest) {
     // Parse the JSON from Claude's response
     let dossierContent;
     try {
-      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      // Strip markdown code fences if present
+      let cleaned = rawText.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
+        console.error("No JSON found in response. Raw text (first 500 chars):", rawText.slice(0, 500));
         throw new Error("No JSON found in response");
       }
       dossierContent = JSON.parse(jsonMatch[0]);
-    } catch {
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      console.error("Raw text (first 1000 chars):", rawText.slice(0, 1000));
       return NextResponse.json(
         { error: "Failed to parse dossier data. Please try again." },
         { status: 500 }
