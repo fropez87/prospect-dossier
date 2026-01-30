@@ -184,21 +184,31 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Dossier generation error:", error);
 
-    // Don't leak internal error details to the client
-    const isRateLimit =
-      error instanceof Error && error.message.includes("429");
+    // Anthropic SDK errors have a `status` property
+    const apiStatus = (error as { status?: number }).status;
+    const errorMsg = error instanceof Error ? error.message : String(error);
 
-    const isAuthError =
-      error instanceof Error &&
-      (error.message.includes("401") || error.message.includes("403"));
+    console.error("Error details — status:", apiStatus, "message:", errorMsg);
 
-    const message = isRateLimit
-      ? "API rate limit reached. Please wait a minute and try again."
-      : isAuthError
-        ? "AI service temporarily unavailable. Please try again."
-        : "Something went wrong. Please try again.";
+    let message: string;
+    let status: number;
 
-    const status = isRateLimit ? 429 : 500;
+    if (apiStatus === 429) {
+      message = "API rate limit reached. Please wait a minute and try again.";
+      status = 429;
+    } else if (apiStatus === 401 || apiStatus === 403) {
+      message = "API key is invalid or unauthorized. Check your ANTHROPIC_API_KEY.";
+      status = 500;
+    } else if (apiStatus === 400) {
+      message = "Bad request to AI service. Please try again.";
+      status = 500;
+    } else if (apiStatus === 529 || apiStatus === 503) {
+      message = "AI service is temporarily overloaded. Please try again in a moment.";
+      status = 503;
+    } else {
+      message = `Something went wrong (${apiStatus || "unknown"}). Please try again.`;
+      status = 500;
+    }
 
     return NextResponse.json({ error: message }, { status });
   }
