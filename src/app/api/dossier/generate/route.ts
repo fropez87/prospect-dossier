@@ -100,8 +100,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Strip <cite index="...">...</cite> tags injected by web search
-    rawText = rawText.replace(/<cite\s+index="[^"]*">/g, "").replace(/<\/cite>/g, "");
+    // Strip <cite index="...">...</cite> tags injected by web search.
+    // Inside JSON strings, quotes are escaped as \" so we handle both forms.
+    rawText = rawText
+      .replace(/<cite\s+index=\\?"[^"]*\\?">/g, "")
+      .replace(/<\/cite>/g, "");
 
     // Extract source URLs from web search results
     const sources: string[] = [];
